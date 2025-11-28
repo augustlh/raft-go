@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package grpc;
+
+option go_package = "raft-go/grpc";
+
+message Acknowledgement {}
+
+message VoteRequest {
+  uint32 id = 1;
+  uint32 currentTerm = 2;
+  uint32 logLength = 3;
+  uint32 lastTerm = 4;
+}
+
+message VoteResponse {
+  uint32 id = 1;
+  uint32 currentTerm = 2;
+  bool accept = 3;
+}
+
+message HeartbeatMsg {
+  uint32 id = 1;
+  uint32 currentTerm = 2;
+}
+
+service RaftService {
+  rpc Election(VoteRequest) returns (VoteResponse);
+  rpc Heartbeat(HeartbeatMsg) returns (Acknowledgement);
+}
+
