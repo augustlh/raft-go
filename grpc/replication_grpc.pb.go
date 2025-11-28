@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RaftService_Election_FullMethodName = "/grpc.RaftService/Election"
+	RaftService_Election_FullMethodName  = "/grpc.RaftService/Election"
+	RaftService_Heartbeat_FullMethodName = "/grpc.RaftService/Heartbeat"
 )
 
 // RaftServiceClient is the client API for RaftService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RaftServiceClient interface {
 	Election(ctx context.Context, in *VoteRequest, opts ...grpc.CallOption) (*VoteResponse, error)
+	Heartbeat(ctx context.Context, in *HeartbeatMsg, opts ...grpc.CallOption) (*Acknowledgement, error)
 }
 
 type raftServiceClient struct {
@@ -47,11 +49,22 @@ func (c *raftServiceClient) Election(ctx context.Context, in *VoteRequest, opts 
 	return out, nil
 }
 
+func (c *raftServiceClient) Heartbeat(ctx context.Context, in *HeartbeatMsg, opts ...grpc.CallOption) (*Acknowledgement, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Acknowledgement)
+	err := c.cc.Invoke(ctx, RaftService_Heartbeat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RaftServiceServer is the server API for RaftService service.
 // All implementations must embed UnimplementedRaftServiceServer
 // for forward compatibility.
 type RaftServiceServer interface {
 	Election(context.Context, *VoteRequest) (*VoteResponse, error)
+	Heartbeat(context.Context, *HeartbeatMsg) (*Acknowledgement, error)
 	mustEmbedUnimplementedRaftServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedRaftServiceServer struct{}
 
 func (UnimplementedRaftServiceServer) Election(context.Context, *VoteRequest) (*VoteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Election not implemented")
+}
+func (UnimplementedRaftServiceServer) Heartbeat(context.Context, *HeartbeatMsg) (*Acknowledgement, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
 }
 func (UnimplementedRaftServiceServer) mustEmbedUnimplementedRaftServiceServer() {}
 func (UnimplementedRaftServiceServer) testEmbeddedByValue()                     {}
@@ -104,6 +120,24 @@ func _RaftService_Election_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RaftService_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeartbeatMsg)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RaftServiceServer).Heartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RaftService_Heartbeat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RaftServiceServer).Heartbeat(ctx, req.(*HeartbeatMsg))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RaftService_ServiceDesc is the grpc.ServiceDesc for RaftService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var RaftService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Election",
 			Handler:    _RaftService_Election_Handler,
+		},
+		{
+			MethodName: "Heartbeat",
+			Handler:    _RaftService_Heartbeat_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -2,6 +2,7 @@ package raft;
 
 import (
 	"time"
+	"context"
 	"math/rand"
 	"raft-go/HaskellRipoff/Data"
 
@@ -10,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type NodeId int;
+type NodeId uint32;
 type Role byte;
 
 const (
@@ -44,11 +45,21 @@ func (peer *Peer) InitPeer(info NodeInfo) {
 	peer.client = pb.NewRaftServiceClient(peer.grpcConn)
 }
 
+type MessageKind byte; 
+
+const (
+	HeartbeatMessage MessageKind = iota
+)
+
+type Message struct {
+	kind MessageKind
+}
+
 type NodeState struct {
 	info NodeInfo
 	peers []NodeInfo
 
-	currentTerm uint;
+	currentTerm uint32;
 	votedFor Data.Maybe[NodeId];
 	currentRole Role
 	currentLeader Data.Maybe[NodeId];
@@ -56,6 +67,8 @@ type NodeState struct {
 	votesReceived []uint
 
 	timeoutDeadline time.Time
+
+	messages chan Message
 
 	//sentLength []uint
 	//ackedLength []uint
@@ -77,13 +90,31 @@ func (state *NodeState) resetTime() {
 	state.timeoutDeadline = time.Now().Add(time.Duration(timeout)*time.Millisecond)
 }
 
+func (server *NodeState) Heartbeat(
+	ctx context.Context, req *pb.HeartbeatMsg) (*pb.Acknowledgement, error) {
+	server.messages <- Message {kind: HeartbeatMessage}
+	return &pb.Acknowledgement{}, nil
+}
+
+func (server *NodeState) Election(
+	ctx context.Context, req *pb.VoteRequest) (*pb.VoteResponse, error) {
+
+	msg := pb.VoteResponse { 
+		Id: uint32(server.info.id),  
+		CurrentTerm: server.currentTerm,
+		Accept: true,
+	}
+
+	return &msg, nil
+}
+
 func (state *NodeState) onTimeout() {
 	state.currentTerm += 1
 	state.currentRole = Candidate
 	state.votedFor = Data.Just(state.info.id)
 
 	// state.votesReceived = {state.info.id}
-	lastTerm := 0
+	//lastTerm := 0
 
 	// if log.length > 0 then lastTerm := log[log.length - 1].term; end if
 
@@ -92,6 +123,12 @@ func (state *NodeState) onTimeout() {
 func (state *NodeState) Loop() {
 	state.resetTime()
 	for {
+		msg := <- state.messages
+
+		switch msg.kind {
+		case HeartbeatMessage:
+		state.resetTime();
+		}
 	}
 }
 

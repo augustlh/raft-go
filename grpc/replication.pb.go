@@ -21,27 +21,26 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type IsLeader struct {
+type Acknowledgement struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	IsLeader      bool                   `protobuf:"varint,1,opt,name=isLeader,proto3" json:"isLeader,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *IsLeader) Reset() {
-	*x = IsLeader{}
+func (x *Acknowledgement) Reset() {
+	*x = Acknowledgement{}
 	mi := &file_grpc_replication_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IsLeader) String() string {
+func (x *Acknowledgement) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IsLeader) ProtoMessage() {}
+func (*Acknowledgement) ProtoMessage() {}
 
-func (x *IsLeader) ProtoReflect() protoreflect.Message {
+func (x *Acknowledgement) ProtoReflect() protoreflect.Message {
 	mi := &file_grpc_replication_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -53,16 +52,9 @@ func (x *IsLeader) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IsLeader.ProtoReflect.Descriptor instead.
-func (*IsLeader) Descriptor() ([]byte, []int) {
+// Deprecated: Use Acknowledgement.ProtoReflect.Descriptor instead.
+func (*Acknowledgement) Descriptor() ([]byte, []int) {
 	return file_grpc_replication_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *IsLeader) GetIsLeader() bool {
-	if x != nil {
-		return x.IsLeader
-	}
-	return false
 }
 
 type VoteRequest struct {
@@ -193,13 +185,64 @@ func (x *VoteResponse) GetAccept() bool {
 	return false
 }
 
+type HeartbeatMsg struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	CurrentTerm   uint32                 `protobuf:"varint,2,opt,name=currentTerm,proto3" json:"currentTerm,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeartbeatMsg) Reset() {
+	*x = HeartbeatMsg{}
+	mi := &file_grpc_replication_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeartbeatMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeartbeatMsg) ProtoMessage() {}
+
+func (x *HeartbeatMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_replication_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeartbeatMsg.ProtoReflect.Descriptor instead.
+func (*HeartbeatMsg) Descriptor() ([]byte, []int) {
+	return file_grpc_replication_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *HeartbeatMsg) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *HeartbeatMsg) GetCurrentTerm() uint32 {
+	if x != nil {
+		return x.CurrentTerm
+	}
+	return 0
+}
+
 var File_grpc_replication_proto protoreflect.FileDescriptor
 
 const file_grpc_replication_proto_rawDesc = "" +
 	"\n" +
-	"\x16grpc/replication.proto\x12\x04grpc\"&\n" +
-	"\bIsLeader\x12\x1a\n" +
-	"\bisLeader\x18\x01 \x01(\bR\bisLeader\"y\n" +
+	"\x16grpc/replication.proto\x12\x04grpc\"\x11\n" +
+	"\x0fAcknowledgement\"y\n" +
 	"\vVoteRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12 \n" +
 	"\vcurrentTerm\x18\x02 \x01(\rR\vcurrentTerm\x12\x1c\n" +
@@ -208,9 +251,13 @@ const file_grpc_replication_proto_rawDesc = "" +
 	"\fVoteResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12 \n" +
 	"\vcurrentTerm\x18\x02 \x01(\rR\vcurrentTerm\x12\x16\n" +
-	"\x06accept\x18\x03 \x01(\bR\x06accept2@\n" +
+	"\x06accept\x18\x03 \x01(\bR\x06accept\"@\n" +
+	"\fHeartbeatMsg\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12 \n" +
+	"\vcurrentTerm\x18\x02 \x01(\rR\vcurrentTerm2x\n" +
 	"\vRaftService\x121\n" +
-	"\bElection\x12\x11.grpc.VoteRequest\x1a\x12.grpc.VoteResponseB\x0eZ\fraft-go/grpcb\x06proto3"
+	"\bElection\x12\x11.grpc.VoteRequest\x1a\x12.grpc.VoteResponse\x126\n" +
+	"\tHeartbeat\x12\x12.grpc.HeartbeatMsg\x1a\x15.grpc.AcknowledgementB\x0eZ\fraft-go/grpcb\x06proto3"
 
 var (
 	file_grpc_replication_proto_rawDescOnce sync.Once
@@ -224,17 +271,20 @@ func file_grpc_replication_proto_rawDescGZIP() []byte {
 	return file_grpc_replication_proto_rawDescData
 }
 
-var file_grpc_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_grpc_replication_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_grpc_replication_proto_goTypes = []any{
-	(*IsLeader)(nil),     // 0: grpc.IsLeader
-	(*VoteRequest)(nil),  // 1: grpc.VoteRequest
-	(*VoteResponse)(nil), // 2: grpc.VoteResponse
+	(*Acknowledgement)(nil), // 0: grpc.Acknowledgement
+	(*VoteRequest)(nil),     // 1: grpc.VoteRequest
+	(*VoteResponse)(nil),    // 2: grpc.VoteResponse
+	(*HeartbeatMsg)(nil),    // 3: grpc.HeartbeatMsg
 }
 var file_grpc_replication_proto_depIdxs = []int32{
 	1, // 0: grpc.RaftService.Election:input_type -> grpc.VoteRequest
-	2, // 1: grpc.RaftService.Election:output_type -> grpc.VoteResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	3, // 1: grpc.RaftService.Heartbeat:input_type -> grpc.HeartbeatMsg
+	2, // 2: grpc.RaftService.Election:output_type -> grpc.VoteResponse
+	0, // 3: grpc.RaftService.Heartbeat:output_type -> grpc.Acknowledgement
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -251,7 +301,7 @@ func file_grpc_replication_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grpc_replication_proto_rawDesc), len(file_grpc_replication_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
