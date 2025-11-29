@@ -1,9 +1,12 @@
 package raft;
 
 import (
+	"os"
 	"fmt"
 	"log"
+	"net"
 	"slices"
+	"strings"
 	"time"
 	"context"
 	"math/rand"
@@ -24,21 +27,40 @@ const (
 )
 
 type NodeInfo struct {
-	id NodeId
-	connectionaddr string
+	Id NodeId
+	ConnectionAddr string
+}
+
+func LoadServers(file string) ([]NodeInfo, error) {
+	b, err := os.ReadFile(file)
+	if err != nil { return nil, err }
+
+	lines := strings.Split(string(b), "\n")
+
+	nodes := make([]NodeInfo, len(lines))
+
+	for i, l := range lines {
+		if l == "" { continue }
+		nodes[i].ConnectionAddr = l
+		nodes[i].Id = NodeId(i)
+		fmt.Println(i, l)
+	}
+	return nodes, nil
 }
 
 type Peer struct {
-	info NodeInfo
+	Info NodeInfo
 	grpcConn *grpc.ClientConn
 	client pb.RaftServiceClient
 }
 
 func (peer *Peer) InitPeer(info NodeInfo) {
-	peer.info = info
+	peer.Info = info
 	conn, err := grpc.NewClient(
-		info.connectionaddr,
+		info.ConnectionAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	fmt.Printf("PEER INIT: %s",peer.Info.ConnectionAddr)
 
 	if err != nil {
 		panic(err.Error())
@@ -46,6 +68,10 @@ func (peer *Peer) InitPeer(info NodeInfo) {
 
 	peer.grpcConn = conn
 	peer.client = pb.NewRaftServiceClient(peer.grpcConn)
+
+	if peer.client == nil {
+		panic("Client is nil")
+	}
 }
 
 type MessageKind byte; 
@@ -72,8 +98,9 @@ type Message struct {
 }
 
 type NodeState struct {
+	pb.UnimplementedRaftServiceServer
 	info NodeInfo
-	peers map[NodeId]Peer
+	peers []Peer
 
 	currentTerm uint32;
 	votedFor Data.Maybe[NodeId];
@@ -93,15 +120,15 @@ type NodeState struct {
 
 func (state *NodeState) Initialize(id NodeId, nodes []NodeInfo) {
 	state.info = nodes[id]
-	state.peers = make(map[NodeId]Peer, len(nodes))
 	state.messages = make(chan Message, 10)
 
 	for i, n := range nodes {
 		if NodeId(i) == id { continue }
 
-		state.peers[n.id] = Peer {}
-		v, _ := state.peers[n.id]
-		v.InitPeer(n)
+		p := Peer {}
+		p.InitPeer(n)
+
+		state.peers = append(state.peers, p)
 	}
 
 	state.currentTerm = 0;
@@ -112,9 +139,17 @@ func (state *NodeState) Initialize(id NodeId, nodes []NodeInfo) {
 }
 
 func (state *NodeState) resetTime() {
-	timeout := (rand.Int() % 150) + 150;
+	timeout := (rand.Int() % 150) + 500;
 	state.timeoutDuration = time.Duration(timeout)*time.Millisecond
 	//state.timeoutDeadline = time.Now().Add(time.Duration(timeout)*time.Millisecond)
+}
+
+func (state *NodeState) findPeer(id NodeId) Data.Maybe[Peer] {
+	for _, v := range state.peers {
+		if v.Info.Id == id { return Data.Just(v) }
+	}
+
+	return Data.Nothing[Peer]()
 }
 
 func (server *NodeState) onVoteResponse(msg Message) error {
@@ -132,7 +167,7 @@ func (server *NodeState) onVoteResponse(msg Message) error {
 
 		if numOfVotes >= needed {
 			server.currentRole = Leader
-			server.currentLeader = Data.Just(server.info.id)
+			server.currentLeader = Data.Just(server.info.Id)
 			// cancel election timer
 
 //			for _, _ := range server.peers {
@@ -152,11 +187,14 @@ func (server *NodeState) onVoteResponse(msg Message) error {
 	return nil
 }
 
+
 func (server *NodeState) onVoteRequest(msg Message) error {
 	log.Printf("Got vote request from Node ID: %d", msg.id)
 
-	peer, found := server.peers[msg.id]
-	if !found {
+//	peer, found := server.peers[msg.id]
+
+	peer := server.findPeer(msg.id)
+	if peer.IsNothing() {
 		return fmt.Errorf("Node ID not found: %d", msg.id)
 	}
 
@@ -174,7 +212,7 @@ func (server *NodeState) onVoteRequest(msg Message) error {
 
 	logOk := (msg.lastTerm > server.currentTerm) || (msg.lastTerm == lastTerm && msg.logLength >= logLength)
 
-	if msg.currentTerm == server.currentTerm && logOk && server.votedFor.EqualOrNothing(server.info.id) {
+	if msg.currentTerm == server.currentTerm && logOk && server.votedFor.EqualOrNothing(server.info.Id) {
 		server.votedFor = Data.Just(NodeId(msg.id))
 		accepted = true
 		log.Printf("Accepting vote from Node ID: %d", msg.id)
@@ -184,20 +222,27 @@ func (server *NodeState) onVoteRequest(msg Message) error {
 	}
 
 	rep := pb.VoteResponse { 
-		Id: uint32(server.info.id),  
+		Id: uint32(server.info.Id),  
 		CurrentTerm: server.currentTerm,
 		Accept: accepted,
 	}
 
-	peer.client.Response(context.Background(), &rep)
+	_, err := peer.FromJust().client.Response(context.Background(), &rep)
+
+	if err != nil {
+		log.Printf("Error when responding: %s", err.Error())
+	}
 
 	return nil
 }
 
 func (state *NodeState) onHeartbeat(msg Message) {
-	peer, found := state.peers[msg.id]
-	if !found {
+//	peer, found := state.peers[msg.id]
+	peer := state.findPeer(msg.id)
+
+	if peer.IsNothing() {
 		log.Printf("Got heartbeat from unknown node: %d", msg.id)
+		return
 	}
 
 	log.Printf("Got hearbeat from node: %v", peer)
@@ -213,28 +258,59 @@ func (state *NodeState) onTimeout() {
 	log.Println("Timeout occured, assuming leader is dead, holding election")
 	state.currentTerm += 1
 	state.currentRole = Candidate
-	state.votedFor = Data.Just(state.info.id)
+	state.votedFor = Data.Just(state.info.Id)
 
 	state.votesReceived = nil
-	state.votesReceived = append(state.votesReceived, state.info.id)
+	state.votesReceived = append(state.votesReceived, state.info.Id)
 //	lastTerm := 0
 
 	// if log.length > 0 then lastTerm := log[log.length - 1].term; end if
 
 	msg := pb.VoteRequest {
-		Id: uint32(state.info.id),
+		Id: uint32(state.info.Id),
 		CurrentTerm: state.currentTerm,
 		LogLength: 0,
 		LastTerm: 0,
 	}
 
 	for _, node := range state.peers {
-		node.client.Vote(context.Background(), &msg)
+		_, err := node.client.Vote(context.Background(), &msg)
+
+		if err != nil {
+			log.Printf("Error when responding: %s", err.Error())
+		}
 	}
 	state.resetTime()
 }
 
+func (state *NodeState) leaderLoop() {
+
+	for {
+		if state.currentRole != Leader { continue }
+
+		time.Sleep( 100 * time.Millisecond )
+
+		msg := pb.HeartbeatMsg{Id: uint32(state.info.Id), CurrentTerm: state.currentTerm}
+		for _, n := range state.peers {
+			n.client.Heartbeat(context.Background(), &msg)
+		}
+	}
+}
+
 func (state *NodeState) Loop() {
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterRaftServiceServer(grpcServer, state)
+
+	tcpConnection, err := net.Listen("tcp", state.info.ConnectionAddr)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	go grpcServer.Serve(tcpConnection)
+	go state.leaderLoop()
+
 	state.resetTime()
 	for {
 		select {
@@ -274,12 +350,12 @@ func (server *NodeState) Response(
 	return &pb.Acknowledgement{}, nil
 }
 
-func (server *NodeState) Election(
+func (server *NodeState) Vote(
 	ctx context.Context, req *pb.VoteRequest) (*pb.Acknowledgement, error) {
 
 	server.messages <- Message {
 		kind: VoteRequestMessage,
-		id: NodeId(server.info.id),
+		id: NodeId(server.info.Id),
 		currentTerm: server.currentTerm,
 		logLength: 0,
 		lastTerm: 0,
