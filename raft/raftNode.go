@@ -155,6 +155,7 @@ func (state *NodeState) findPeer(id NodeId) Data.Maybe[Peer] {
 func (server *NodeState) onVoteResponse(msg Message) error {
 	log.Printf("Got a vote response from Node ID: %d", msg.id)
 
+
 	if server.currentRole == Candidate && server.currentTerm == msg.currentTerm && msg.accept {
 		log.Printf("Node ID %d accepted my vote request", msg.id)
 		if !slices.Contains(server.votesReceived[:], msg.id) {
@@ -162,10 +163,13 @@ func (server *NodeState) onVoteResponse(msg Message) error {
 		}
 
 		numOfVotes := len(server.votesReceived)
-		neededTmp := (len(server.peers) + 2) 
-		needed := neededTmp / 2 + (neededTmp % 2);
+		needed := ((len(server.peers) + 1) / 2) + 1
+		log.Printf("Votes: %d / %d", numOfVotes, needed)
+
+		log.Printf("Votes: %d / %d", numOfVotes, needed)
 
 		if numOfVotes >= needed {
+			log.Println("Got majority votes, I am now the leader")
 			server.currentRole = Leader
 			server.currentLeader = Data.Just(server.info.Id)
 			// cancel election timer
@@ -201,9 +205,12 @@ func (server *NodeState) onVoteRequest(msg Message) error {
 	accepted := msg.currentTerm > server.currentTerm
 
 	if accepted {
+		log.Printf("Vote request has higher term: %d > %d", msg.currentTerm, server.currentTerm)
 		server.currentTerm = msg.currentTerm
 		server.currentRole = Follower
 		server.votedFor = Data.Nothing[NodeId]()
+	} else {
+		log.Printf("Vote request has lower term: %d < %d", msg.currentTerm, server.currentTerm)
 	}
 
 	var logLength uint32 = 0
@@ -211,6 +218,10 @@ func (server *NodeState) onVoteRequest(msg Message) error {
 	// if log.length > 0 then lastTerm := log[log.length - 1].term; end if
 
 	logOk := (msg.lastTerm > server.currentTerm) || (msg.lastTerm == lastTerm && msg.logLength >= logLength)
+
+	if logOk {
+		log.Println("Log is up to date")
+	}
 
 	if msg.currentTerm == server.currentTerm && logOk && server.votedFor.EqualOrNothing(server.info.Id) {
 		server.votedFor = Data.Just(NodeId(msg.id))
@@ -275,9 +286,10 @@ func (state *NodeState) onTimeout() {
 
 	for _, node := range state.peers {
 		_, err := node.client.Vote(context.Background(), &msg)
+		log.Printf("Sending vote request to: %s with id %d | (Id: %d, Term: %d)", node.Info.ConnectionAddr, node.Info.Id, msg.Id, msg.CurrentTerm)
 
 		if err != nil {
-			log.Printf("Error when responding: %s", err.Error())
+			log.Printf("Error when sending vote request: %s", err.Error())
 		}
 	}
 	state.resetTime()
@@ -288,7 +300,7 @@ func (state *NodeState) leaderLoop() {
 	for {
 		if state.currentRole != Leader { continue }
 
-		time.Sleep( 100 * time.Millisecond )
+		time.Sleep( 10 * time.Millisecond )
 
 		msg := pb.HeartbeatMsg{Id: uint32(state.info.Id), CurrentTerm: state.currentTerm}
 		for _, n := range state.peers {
@@ -324,7 +336,9 @@ func (state *NodeState) Loop() {
 				state.onVoteResponse(msg)
 				}
 			case <-time.After(state.timeoutDuration):
+			if state.currentRole != Leader {
 				state.onTimeout();
+			}
 		}
 	}
 }
@@ -335,7 +349,7 @@ func (state *NodeState) Loop() {
 
 func (server *NodeState) Heartbeat(
 	ctx context.Context, req *pb.HeartbeatMsg) (*pb.Acknowledgement, error) {
-	server.messages <- Message {kind: HeartbeatMessage}
+	server.messages <- Message {kind: HeartbeatMessage, id: NodeId(req.Id), currentTerm: req.CurrentTerm}
 	return &pb.Acknowledgement{}, nil
 }
 
@@ -355,8 +369,8 @@ func (server *NodeState) Vote(
 
 	server.messages <- Message {
 		kind: VoteRequestMessage,
-		id: NodeId(server.info.Id),
-		currentTerm: server.currentTerm,
+		id: NodeId(req.Id),
+		currentTerm: req.CurrentTerm,
 		logLength: 0,
 		lastTerm: 0,
 	}

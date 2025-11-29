@@ -34,6 +34,7 @@ func main() {
 	nodes2 := []raft.NodeInfo{
 		raft.NodeInfo{Id: 0, ConnectionAddr: "localhost:5000"},
 		raft.NodeInfo{Id: 1, ConnectionAddr: "localhost:5001"},
+		raft.NodeInfo{Id: 2, ConnectionAddr: "localhost:5002"},
 	};
 
 
