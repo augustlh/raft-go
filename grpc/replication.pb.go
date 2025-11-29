@@ -254,9 +254,10 @@ const file_grpc_replication_proto_rawDesc = "" +
 	"\x06accept\x18\x03 \x01(\bR\x06accept\"@\n" +
 	"\fHeartbeatMsg\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12 \n" +
-	"\vcurrentTerm\x18\x02 \x01(\rR\vcurrentTerm2x\n" +
-	"\vRaftService\x121\n" +
-	"\bElection\x12\x11.grpc.VoteRequest\x1a\x12.grpc.VoteResponse\x126\n" +
+	"\vcurrentTerm\x18\x02 \x01(\rR\vcurrentTerm2\xae\x01\n" +
+	"\vRaftService\x120\n" +
+	"\x04Vote\x12\x11.grpc.VoteRequest\x1a\x15.grpc.Acknowledgement\x125\n" +
+	"\bResponse\x12\x12.grpc.VoteResponse\x1a\x15.grpc.Acknowledgement\x126\n" +
 	"\tHeartbeat\x12\x12.grpc.HeartbeatMsg\x1a\x15.grpc.AcknowledgementB\x0eZ\fraft-go/grpcb\x06proto3"
 
 var (
@@ -279,12 +280,14 @@ var file_grpc_replication_proto_goTypes = []any{
 	(*HeartbeatMsg)(nil),    // 3: grpc.HeartbeatMsg
 }
 var file_grpc_replication_proto_depIdxs = []int32{
-	1, // 0: grpc.RaftService.Election:input_type -> grpc.VoteRequest
-	3, // 1: grpc.RaftService.Heartbeat:input_type -> grpc.HeartbeatMsg
-	2, // 2: grpc.RaftService.Election:output_type -> grpc.VoteResponse
-	0, // 3: grpc.RaftService.Heartbeat:output_type -> grpc.Acknowledgement
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	1, // 0: grpc.RaftService.Vote:input_type -> grpc.VoteRequest
+	2, // 1: grpc.RaftService.Response:input_type -> grpc.VoteResponse
+	3, // 2: grpc.RaftService.Heartbeat:input_type -> grpc.HeartbeatMsg
+	0, // 3: grpc.RaftService.Vote:output_type -> grpc.Acknowledgement
+	0, // 4: grpc.RaftService.Response:output_type -> grpc.Acknowledgement
+	0, // 5: grpc.RaftService.Heartbeat:output_type -> grpc.Acknowledgement
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

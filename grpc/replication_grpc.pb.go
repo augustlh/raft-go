@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RaftService_Election_FullMethodName  = "/grpc.RaftService/Election"
+	RaftService_Vote_FullMethodName      = "/grpc.RaftService/Vote"
+	RaftService_Response_FullMethodName  = "/grpc.RaftService/Response"
 	RaftService_Heartbeat_FullMethodName = "/grpc.RaftService/Heartbeat"
 )
 
@@ -27,7 +28,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RaftServiceClient interface {
-	Election(ctx context.Context, in *VoteRequest, opts ...grpc.CallOption) (*VoteResponse, error)
+	Vote(ctx context.Context, in *VoteRequest, opts ...grpc.CallOption) (*Acknowledgement, error)
+	Response(ctx context.Context, in *VoteResponse, opts ...grpc.CallOption) (*Acknowledgement, error)
 	Heartbeat(ctx context.Context, in *HeartbeatMsg, opts ...grpc.CallOption) (*Acknowledgement, error)
 }
 
@@ -39,10 +41,20 @@ func NewRaftServiceClient(cc grpc.ClientConnInterface) RaftServiceClient {
 	return &raftServiceClient{cc}
 }
 
-func (c *raftServiceClient) Election(ctx context.Context, in *VoteRequest, opts ...grpc.CallOption) (*VoteResponse, error) {
+func (c *raftServiceClient) Vote(ctx context.Context, in *VoteRequest, opts ...grpc.CallOption) (*Acknowledgement, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(VoteResponse)
-	err := c.cc.Invoke(ctx, RaftService_Election_FullMethodName, in, out, cOpts...)
+	out := new(Acknowledgement)
+	err := c.cc.Invoke(ctx, RaftService_Vote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *raftServiceClient) Response(ctx context.Context, in *VoteResponse, opts ...grpc.CallOption) (*Acknowledgement, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Acknowledgement)
+	err := c.cc.Invoke(ctx, RaftService_Response_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +75,8 @@ func (c *raftServiceClient) Heartbeat(ctx context.Context, in *HeartbeatMsg, opt
 // All implementations must embed UnimplementedRaftServiceServer
 // for forward compatibility.
 type RaftServiceServer interface {
-	Election(context.Context, *VoteRequest) (*VoteResponse, error)
+	Vote(context.Context, *VoteRequest) (*Acknowledgement, error)
+	Response(context.Context, *VoteResponse) (*Acknowledgement, error)
 	Heartbeat(context.Context, *HeartbeatMsg) (*Acknowledgement, error)
 	mustEmbedUnimplementedRaftServiceServer()
 }
@@ -75,8 +88,11 @@ type RaftServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedRaftServiceServer struct{}
 
-func (UnimplementedRaftServiceServer) Election(context.Context, *VoteRequest) (*VoteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Election not implemented")
+func (UnimplementedRaftServiceServer) Vote(context.Context, *VoteRequest) (*Acknowledgement, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Vote not implemented")
+}
+func (UnimplementedRaftServiceServer) Response(context.Context, *VoteResponse) (*Acknowledgement, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Response not implemented")
 }
 func (UnimplementedRaftServiceServer) Heartbeat(context.Context, *HeartbeatMsg) (*Acknowledgement, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
@@ -102,20 +118,38 @@ func RegisterRaftServiceServer(s grpc.ServiceRegistrar, srv RaftServiceServer) {
 	s.RegisterService(&RaftService_ServiceDesc, srv)
 }
 
-func _RaftService_Election_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RaftService_Vote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VoteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RaftServiceServer).Election(ctx, in)
+		return srv.(RaftServiceServer).Vote(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RaftService_Election_FullMethodName,
+		FullMethod: RaftService_Vote_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RaftServiceServer).Election(ctx, req.(*VoteRequest))
+		return srv.(RaftServiceServer).Vote(ctx, req.(*VoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RaftService_Response_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VoteResponse)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RaftServiceServer).Response(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RaftService_Response_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RaftServiceServer).Response(ctx, req.(*VoteResponse))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -146,8 +180,12 @@ var RaftService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*RaftServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Election",
-			Handler:    _RaftService_Election_Handler,
+			MethodName: "Vote",
+			Handler:    _RaftService_Vote_Handler,
+		},
+		{
+			MethodName: "Response",
+			Handler:    _RaftService_Response_Handler,
 		},
 		{
 			MethodName: "Heartbeat",

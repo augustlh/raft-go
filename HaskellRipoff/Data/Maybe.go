@@ -2,16 +2,16 @@ package Data;
 
 import "raft-go/HaskellRipoff/Base"
 
-type Maybe[T any] struct {
+type Maybe[T comparable] struct {
 	hasValue bool
 	value T
 }
 
-func Nothing[T any]() Maybe[T] {
+func Nothing[T comparable]() Maybe[T] {
 	return Maybe[T] { hasValue: false }
 }
 
-func Just[T any](value T) Maybe[T] {
+func Just[T comparable](value T) Maybe[T] {
 	return Maybe[T] { hasValue: true, value: value }
 }
 func (maybe *Maybe[T]) FromJust() T {
@@ -43,6 +43,14 @@ func (maybe Maybe[T]) Replace(a any) Base.Functor[any] {
 	}
 
 	return Just(a)
+}
+
+func (maybe *Maybe[T]) EqualOrNothing(value any) bool {
+	if !maybe.hasValue {
+		return true
+	}
+
+	return maybe.value == value
 }
 
 

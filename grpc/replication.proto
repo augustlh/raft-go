@@ -25,7 +25,11 @@ message HeartbeatMsg {
 }
 
 service RaftService {
-  rpc Election(VoteRequest) returns (VoteResponse);
+//  rpc Election(VoteRequest) returns (VoteResponse);
+
+  rpc Vote(VoteRequest) returns (Acknowledgement);
+  rpc Response(VoteResponse) returns (Acknowledgement);
+
   rpc Heartbeat(HeartbeatMsg) returns (Acknowledgement);
 }
 
